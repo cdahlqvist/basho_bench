@@ -239,6 +239,45 @@ run({get_index, IndexName, Range}, _KeyGen, _ValueGen, State) ->
                     {error, Reason, State}
             end
     end;
+run({mmg_multiget, ItemCount}, KeyGen, _ValueGen, State) when is_integer(ItemCount) andalso ItemCount > 0 ->
+    IdList = make_keylist(State#state.bucket, KeyGen, ItemCount),
+    [Bucket | _] = [B || {B, _} <- IdList],
+    KeyList = [K || {_, K} <- IdList],
+    case riakc_pb_socket:multiget(State#state.pid, Bucket, KeyList) of
+        {ok, []} ->
+            io:format("Incorrect number of results for mmg_multiget. Expected ~p, Received 0~n", [ItemCount]),
+            {ok, State};
+        {ok, [{_, Results}]} ->
+            case length(Results) of
+                ItemCount ->
+                    {ok, State};
+                N ->
+                    io:format("Incorrect number of results for mmg_multiget. Expected ~p, Received ~p~n", [ItemCount, N]),
+                    {ok, State}
+            end;
+        {error, Reason} ->
+            {error, Reason, State}
+    end;
+run({mmg_multiget, ItemCount, Concurrency}, KeyGen, _ValueGen, State) when is_integer(ItemCount) andalso ItemCount > 0 andalso
+                                                                           is_integer(Concurrency) andalso Concurrency > 0 ->
+    IdList = make_keylist(State#state.bucket, KeyGen, ItemCount),
+    [Bucket | _] = [B || {B, _} <- IdList],
+    KeyList = [K || {_, K} <- IdList],
+    case riakc_pb_socket:multiget(State#state.pid, Bucket, KeyList, Concurrency) of
+        {ok, []} ->
+            io:format("Incorrect number of results for mmg_multiget. Expected ~p, Received 0~n", [ItemCount]),
+            {ok, State};
+        {ok, [{_, Results}]} ->
+            case length(Results) of
+                ItemCount ->
+                    {ok, State};
+                N ->
+                    io:format("Incorrect number of results for mmg_multiget. Expected ~p, Received ~p~n", [ItemCount, N]),
+                    {ok, State}
+            end;
+        {error, Reason} ->
+            {error, Reason, State}
+    end;
 run({mr_multiget, ItemCount}, KeyGen, _ValueGen, State) when is_integer(ItemCount) andalso ItemCount > 0 ->
     KeyList = make_keylist(State#state.bucket, KeyGen, ItemCount),
     case riakc_pb_socket:mapred(State#state.pid, KeyList, ?MR_MULTIGET) of
