@@ -39,7 +39,7 @@
                  indexes}).
 
 -define(MR_MULTIGET,
-        [{map, {modfun, riak_kv_mapreduce, map_object_value}, <<"filter_notfound">>, true}]).
+        [{map, {modfun, mmg, map_multiget}, undefined, true}]).
 -define(ERLANG_MR,
         [{map, {modfun, riak_kv_mapreduce, map_object_value}, none, false},
          {reduce, {modfun, riak_kv_mapreduce, reduce_count_inputs}, none, true}]).
@@ -244,10 +244,10 @@ run({mmg_multiget, ItemCount}, KeyGen, _ValueGen, State) when is_integer(ItemCou
     [Bucket | _] = [B || {B, _} <- IdList],
     KeyList = [K || {_, K} <- IdList],
     case riakc_pb_socket:multiget(State#state.pid, Bucket, KeyList) of
-        {ok, []} ->
+        [] ->
             io:format("Incorrect number of results for mmg_multiget. Expected ~p, Received 0~n", [ItemCount]),
             {ok, State};
-        {ok, [{_, Results}]} ->
+        Results when is_list(Results) ->
             case length(Results) of
                 ItemCount ->
                     {ok, State};
@@ -264,10 +264,10 @@ run({mmg_multiget, ItemCount, Concurrency}, KeyGen, _ValueGen, State) when is_in
     [Bucket | _] = [B || {B, _} <- IdList],
     KeyList = [K || {_, K} <- IdList],
     case riakc_pb_socket:multiget(State#state.pid, Bucket, KeyList, Concurrency) of
-        {ok, []} ->
+        [] ->
             io:format("Incorrect number of results for mmg_multiget. Expected ~p, Received 0~n", [ItemCount]),
             {ok, State};
-        {ok, [{_, Results}]} ->
+        Results when is_list(Results) ->
             case length(Results) of
                 ItemCount ->
                     {ok, State};
@@ -282,14 +282,14 @@ run({mr_multiget, ItemCount}, KeyGen, _ValueGen, State) when is_integer(ItemCoun
     KeyList = make_keylist(State#state.bucket, KeyGen, ItemCount),
     case riakc_pb_socket:mapred(State#state.pid, KeyList, ?MR_MULTIGET) of
         {ok, []} ->
-            io:format("Incorrect number of results for mr_multiget. Expected ~p, Received 0~n", [ItemCount]),
+            io:format("Incorrect number of results for mmg_multiget. Expected ~p, Received 0~n", [ItemCount]),
             {ok, State};
         {ok, [{_, Results}]} ->
             case length(Results) of
                 ItemCount ->
                     {ok, State};
                 N ->
-                    io:format("Incorrect number of results for mr_multiget. Expected ~p, Received ~p~n", [ItemCount, N]),
+                    io:format("Incorrect number of results for mmg_multiget. Expected ~p, Received ~p~n", [ItemCount, N]),
                     {ok, State}
             end;
         {error, Reason} ->
